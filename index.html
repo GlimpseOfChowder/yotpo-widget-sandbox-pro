@@ -38,6 +38,7 @@
     flex: 1;
     display: flex;
     flex-direction: column;
+    overflow: hidden;
   }
 
   #toolbar {
@@ -53,6 +54,7 @@
   iframe {
     flex: 1;
     border: none;
+    min-height: 0;
   }
 
   input#appKey, input#lang {
@@ -92,6 +94,32 @@
 
   #deviceBar button {
     width: 100px;
+  }
+
+  #editorToggleBar {
+    padding: 6px;
+    background: #f3f3f3;
+    border-top: 1px solid #ddd;
+  }
+
+  #codeEditorPanel {
+    height: 200px;
+    border-top: 1px solid #ddd;
+  }
+
+  #codeEditor {
+    width: 100%;
+    height: 100%;
+    border: none;
+    resize: none;
+    font-family: monospace;
+    font-size: 12px;
+    padding: 10px;
+    box-sizing: border-box;
+  }
+
+  .hidden {
+    display: none;
   }
 </style>
 </head>
@@ -137,8 +165,7 @@
 <!-- RIGHT PANEL -->
 <div id="right">
   <div id="toolbar">
-  <div class="title">Preview</div>
-
+    <div class="title">Preview</div>
     <div id="deviceBar">
       <button onclick="setDevice(375)">📱 Mobile</button>
       <button onclick="setDevice(768)">📟 Tablet</button>
@@ -146,9 +173,23 @@
       <button onclick="resetLayout()">🔄 Reset</button>
     </div>
   </div>
-  <iframe id="frame"></iframe>
-</div>
 
+  <iframe id="frame"></iframe>
+
+  <!-- FOOTER TOOLBAR -->
+  <div id="editorToggleBar">
+    <button onclick="toggleEditor()">🧠 Code Editor</button>
+  </div>
+
+  <!-- EDITOR PANEL -->
+  <div id="codeEditorPanel" class="hidden">
+    <textarea
+      id="codeEditor"
+      placeholder="Add custom CSS, JS, or HTML here..."
+    ></textarea>
+  </div>
+
+</div>
 <script>
 function addWidget() {
   const container = document.getElementById("widgetsContainer");
@@ -157,7 +198,7 @@ function addWidget() {
   div.className = "box";
 
   div.innerHTML = `
-    <input class="name" placeholder="Widget Name (e.g. PDP Reviews Block)">
+    <input class="name" placeholder="Widget Name (e.g. SEO Widget)">
 
     <input class="instance" placeholder="Instance ID">
     <input class="product" placeholder="Product ID">
@@ -183,53 +224,84 @@ function generate() {
   const appKey = document.getElementById("appKey").value;
   const lang = document.getElementById("lang").value;
 
+  const customCode = document.getElementById("codeEditor").value;
+
   let widgets = "";
 
-  /* ⭐ STAR */
-  widgets += widget(
-    document.getElementById("starInstance").value,
-    document.getElementById("starProduct").value
-  );
+  /* DEFAULT STAR */
+  const starInstance = document.getElementById("starInstance")?.value;
+  const starProduct = document.getElementById("starProduct")?.value;
 
-  /* 📝 REVIEWS */
-  widgets += widget(
-    document.getElementById("reviewInstance").value,
-    document.getElementById("reviewProduct").value
-  );
+  if (starInstance) {
+    widgets += `
+      <div class="yotpo-widget-instance"
+        data-yotpo-instance-id="${starInstance}"
+        data-yotpo-product-id="${starProduct}">
+      </div>
+    `;
+  }
 
-  /* ➕ DYNAMIC WIDGETS */
+  /* DEFAULT REVIEWS */
+  const reviewInstance = document.getElementById("reviewInstance")?.value;
+  const reviewProduct = document.getElementById("reviewProduct")?.value;
+
+  if (reviewInstance) {
+    widgets += `
+      <div class="yotpo-widget-instance"
+        data-yotpo-instance-id="${reviewInstance}"
+        data-yotpo-product-id="${reviewProduct}">
+      </div>
+    `;
+  }
+
+  /* ADDITIONAL WIDGETS */
   const blocks = document.querySelectorAll("#widgetsContainer .box");
 
   blocks.forEach(block => {
-    const name = block.querySelector(".name").value;
     const instance = block.querySelector(".instance").value;
     const product = block.querySelector(".product").value;
 
-  if (!instance) return;
+    if (!instance) return;
 
-  widgets += `
-    <!-- ${name || "Custom Widget"} -->
-    ${widget(instance, product)}
-  `;
-});
-  const langParam = lang ? `?languageCode=${lang}` : "";
+    widgets += `
+      <div class="yotpo-widget-instance"
+        data-yotpo-instance-id="${instance}"
+        data-yotpo-product-id="${product}">
+      </div>
+    `;
+  });
+
+  const langParam = lang
+    ? `?languageCode=${lang}`
+    : "";
+
+  const scriptTag = appKey
+    ? `<script src="https://cdn-widgetsrepository.yotpo.com/v1/loader/${appKey}${langParam}" async><\/script>`
+    : "";
 
   const html = `
 <!DOCTYPE html>
 <html>
 <head>
-  <script src="https://cdn-widgetsrepository.yotpo.com/v1/loader/${appKey}${langParam}" async><\/script>
+  ${scriptTag}
+
   <style>
-    body { font-family: Arial; padding: 20px; }
-    .yotpo-widget-instance { margin-bottom: 30px; }
+    body {
+      font-family: Arial;
+      padding: 20px;
+    }
+
+    .yotpo-widget-instance {
+      margin-bottom: 30px;
+    }
   </style>
 </head>
 <body>
   ${widgets}
+  ${customCode}
 </body>
 </html>
   `;
-
   document.getElementById("frame").srcdoc = html;
 }
 
@@ -276,6 +348,10 @@ document.addEventListener("mouseup", () => {
   document.body.style.cursor = "default";
 });
 
+function toggleEditor() {
+  const panel = document.getElementById("codeEditorPanel");
+  panel.classList.toggle("hidden");
+}
 
 </script>
 </body>
