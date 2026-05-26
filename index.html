@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Yotpo Sandbox Pro</title>
+
+<style>
+  body {
+    margin: 0;
+    height: 100vh;
+    display: flex;
+    overflow: hidden;
+    font-family: Arial;
+  }
+
+  /* LEFT */
+  #left {
+    width: 420px;
+    min-width: 240px;
+    background: #fafafa;
+    padding: 12px;
+    overflow-y: auto;
+  }
+
+  /* SPLITTER */
+  #divider {
+    width: 6px;
+    cursor: col-resize;
+    background: #ddd;
+  }
+
+  #divider:hover {
+    background: #aaa;
+  }
+
+  /* RIGHT */
+  #right {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+
+  #toolbar {
+    padding: 6px 10px;
+    background: #f3f3f3;
+    font-size: 12px;
+
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  iframe {
+    flex: 1;
+    border: none;
+  }
+
+  input#appKey, input#lang {
+    width: 95%;
+  }
+
+  input, button {
+    width: 100%;
+    padding: 6px;
+    margin: 4px 0;
+  }
+
+  .box {
+    background: white;
+    border: 1px solid #ddd;
+    padding: 10px;
+    margin-bottom: 10px;
+    padding-right: 25px;
+  }
+
+  #deviceBar {
+    display: flex;
+    gap: 6px;
+  }
+
+  #deviceBar button {
+    font-size: 11px;
+    padding: 4px 8px;
+    cursor: pointer;
+    border: 1px solid #ccc;
+    background: white;
+  }
+
+  #deviceBar button:hover {
+    background: #eee;
+  }
+
+  #deviceBar button {
+    width: 100px;
+  }
+</style>
+</head>
+
+<body>
+
+<!-- LEFT PANEL -->
+<div id="left">
+
+  <h3>Yotpo Sandbox</h3>
+
+  <input id="appKey" placeholder="App Key">
+  <input id="lang" placeholder="Language Code (optional)">
+
+  <button onclick="generate()">Generate</button>
+
+  <div class="box">
+    <label>⭐ Star Rating</label>
+    <input id="starInstance" placeholder="Star Instance ID">
+    <input id="starProduct" placeholder="Product ID">
+  </div>
+
+  <div class="box">
+    <label>📝 Reviews</label>
+    <input id="reviewInstance" placeholder="Review Instance ID">
+    <input id="reviewProduct" placeholder="Product ID">
+  </div>
+
+<hr>
+
+<h3>Additional Widgets</h3>
+
+<div id="widgetsContainer"></div>
+
+<button onclick="addWidget()" style="width:100%; padding:10px;">
+  + Add Widget
+</button>
+</div>
+
+<!-- DRAG HANDLE -->
+<div id="divider"></div>
+
+<!-- RIGHT PANEL -->
+<div id="right">
+  <div id="toolbar">
+  <div class="title">Preview</div>
+
+    <div id="deviceBar">
+      <button onclick="setDevice(375)">📱 Mobile</button>
+      <button onclick="setDevice(768)">📟 Tablet</button>
+      <button onclick="setDevice(1024)">💻 Desktop</button>
+      <button onclick="resetLayout()">🔄 Reset</button>
+    </div>
+  </div>
+  <iframe id="frame"></iframe>
+</div>
+
+<script>
+function addWidget() {
+  const container = document.getElementById("widgetsContainer");
+
+  const div = document.createElement("div");
+  div.className = "box";
+
+  div.innerHTML = `
+    <input class="name" placeholder="Widget Name (e.g. PDP Reviews Block)">
+
+    <input class="instance" placeholder="Instance ID">
+    <input class="product" placeholder="Product ID">
+
+    <button onclick="this.parentElement.remove()" style="margin-top:5px;">
+      Remove
+    </button>
+  `;
+
+  container.appendChild(div);
+}
+
+function widget(instance, productId) {
+  return `
+    <div class="yotpo-widget-instance"
+      data-yotpo-instance-id="${instance}"
+      data-yotpo-product-id="${productId}">
+    </div>
+  `;
+}
+
+function generate() {
+  const appKey = document.getElementById("appKey").value;
+  const lang = document.getElementById("lang").value;
+
+  let widgets = "";
+
+  /* ⭐ STAR */
+  widgets += widget(
+    document.getElementById("starInstance").value,
+    document.getElementById("starProduct").value
+  );
+
+  /* 📝 REVIEWS */
+  widgets += widget(
+    document.getElementById("reviewInstance").value,
+    document.getElementById("reviewProduct").value
+  );
+
+  /* ➕ DYNAMIC WIDGETS */
+  const blocks = document.querySelectorAll("#widgetsContainer .box");
+
+  blocks.forEach(block => {
+    const name = block.querySelector(".name").value;
+    const instance = block.querySelector(".instance").value;
+    const product = block.querySelector(".product").value;
+
+  if (!instance) return;
+
+  widgets += `
+    <!-- ${name || "Custom Widget"} -->
+    ${widget(instance, product)}
+  `;
+});
+  const langParam = lang ? `?languageCode=${lang}` : "";
+
+  const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <script src="https://cdn-widgetsrepository.yotpo.com/v1/loader/${appKey}${langParam}" async><\/script>
+  <style>
+    body { font-family: Arial; padding: 20px; }
+    .yotpo-widget-instance { margin-bottom: 30px; }
+  </style>
+</head>
+<body>
+  ${widgets}
+</body>
+</html>
+  `;
+
+  document.getElementById("frame").srcdoc = html;
+}
+
+/* SPLITTER FOR RESIZING PREVIEW */
+const divider = document.getElementById("divider");
+const left = document.getElementById("left");
+
+/* Save default width so reset works */
+const DEFAULT_WIDTH = 420;
+
+function setDevice(width) {
+  left.style.width = width + "px";
+}
+
+/* reset to default + re-enable manual drag feel */
+function resetLayout() {
+  left.style.width = DEFAULT_WIDTH + "px";
+}
+
+
+let isDragging = false;
+
+const MIN = 240;
+
+divider.addEventListener("mousedown", () => {
+  isDragging = true;
+  document.body.style.cursor = "col-resize";
+});
+
+document.addEventListener("mousemove", (e) => {
+  if (!isDragging) return;
+
+  const max = window.innerWidth - 200; // keeps preview usable
+  let width = e.clientX;
+
+  if (width < MIN) width = MIN;
+  if (width > max) width = max;
+
+  left.style.width = width + "px";
+});
+
+document.addEventListener("mouseup", () => {
+  isDragging = false;
+  document.body.style.cursor = "default";
+});
+
+
+</script>
+</body>
+</html>
