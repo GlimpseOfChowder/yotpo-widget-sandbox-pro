@@ -55,6 +55,26 @@
     flex: 1;
     border: none;
     min-height: 0;
+    width: 100%;
+  }
+  #previewWrapper {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    overflow: auto;
+    background: #f9f9f9;
+    width: 100%;
+  }
+
+  #previewWrapper {
+    transition: width 0.2s ease;
+  }
+
+  #frame {
+    width: 100%;
+    height: 100%;
+    border: none;
+    transition: width 0.2s ease;
   }
 
   input#appKey, input#lang {
@@ -174,7 +194,9 @@
     </div>
   </div>
 
-  <iframe id="frame"></iframe>
+  <div id="previewWrapper">
+    <iframe id="frame"></iframe>
+  </div>
 
   <!-- FOOTER TOOLBAR -->
   <div id="editorToggleBar">
@@ -310,15 +332,18 @@ const divider = document.getElementById("divider");
 const left = document.getElementById("left");
 
 /* Save default width so reset works */
-const DEFAULT_WIDTH = 420;
-
 function setDevice(width) {
-  left.style.width = width + "px";
+  const wrapper = document.getElementById("previewWrapper");
+
+  wrapper.style.width = width + "px";
+  wrapper.style.margin = "0 auto";
 }
 
-/* reset to default + re-enable manual drag feel */
 function resetLayout() {
-  left.style.width = DEFAULT_WIDTH + "px";
+  const wrapper = document.getElementById("previewWrapper");
+
+  wrapper.style.width = "100%";
+  wrapper.style.margin = "0";
 }
 
 
