@@ -141,6 +141,17 @@
   .hidden {
     display: none;
   }
+
+  #shareLinkBox input {
+    font-size: 11px;
+    color: #444;
+  }
+
+  #shareLinkStatus {
+    font-size: 11px;
+    color: #2a7d2a;
+    height: 14px;
+  }
 </style>
 </head>
 
@@ -155,6 +166,13 @@
   <input id="lang" placeholder="Language Code (optional)">
 
   <button onclick="generate()">Generate</button>
+
+  <div class="box hidden" id="shareLinkBox">
+    <label>🔗 Shareable Link</label>
+    <input id="shareLinkInput" readonly onclick="this.select()">
+    <button onclick="copyShareLink()">Copy Link</button>
+    <div id="shareLinkStatus"></div>
+  </div>
 
   <div class="box">
     <label>⭐ Star Rating</label>
@@ -213,17 +231,23 @@
 
 </div>
 <script>
-function addWidget() {
+function escapeAttr(str) {
+  return String(str ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;");
+}
+
+function addWidget(name = "", instance = "", product = "") {
   const container = document.getElementById("widgetsContainer");
 
   const div = document.createElement("div");
   div.className = "box";
 
   div.innerHTML = `
-    <input class="name" placeholder="Widget Name (e.g. SEO Widget)">
+    <input class="name" placeholder="Widget Name (e.g. SEO Widget)" value="${escapeAttr(name)}">
 
-    <input class="instance" placeholder="Instance ID">
-    <input class="product" placeholder="Product ID">
+    <input class="instance" placeholder="Instance ID" value="${escapeAttr(instance)}">
+    <input class="product" placeholder="Product ID" value="${escapeAttr(product)}">
 
     <button onclick="this.parentElement.remove()" style="margin-top:5px;">
       Remove
@@ -325,6 +349,119 @@ function generate() {
 </html>
   `;
   document.getElementById("frame").srcdoc = html;
+
+  updateShareLink();
+}
+
+/* ===================== SHAREABLE LINK ===================== */
+
+function serializeConfig() {
+  const widgets = [];
+
+  document.querySelectorAll("#widgetsContainer .box").forEach(block => {
+    widgets.push({
+      name: block.querySelector(".name")?.value || "",
+      instance: block.querySelector(".instance")?.value || "",
+      product: block.querySelector(".product")?.value || ""
+    });
+  });
+
+  return {
+    appKey: document.getElementById("appKey").value,
+    lang: document.getElementById("lang").value,
+    starInstance: document.getElementById("starInstance")?.value || "",
+    starProduct: document.getElementById("starProduct")?.value || "",
+    reviewInstance: document.getElementById("reviewInstance")?.value || "",
+    reviewProduct: document.getElementById("reviewProduct")?.value || "",
+    widgets,
+    customCode: document.getElementById("codeEditor").value
+  };
+}
+
+function encodeConfig(cfg) {
+  const json = JSON.stringify(cfg);
+  return btoa(unescape(encodeURIComponent(json)));
+}
+
+function decodeConfig(str) {
+  try {
+    const json = decodeURIComponent(escape(atob(str)));
+    return JSON.parse(json);
+  } catch (e) {
+    console.warn("Yotpo Sandbox: could not parse shared link config", e);
+    return null;
+  }
+}
+
+function applyConfig(cfg) {
+  if (!cfg) return;
+
+  document.getElementById("appKey").value = cfg.appKey || "";
+  document.getElementById("lang").value = cfg.lang || "";
+  document.getElementById("starInstance").value = cfg.starInstance || "";
+  document.getElementById("starProduct").value = cfg.starProduct || "";
+  document.getElementById("reviewInstance").value = cfg.reviewInstance || "";
+  document.getElementById("reviewProduct").value = cfg.reviewProduct || "";
+  document.getElementById("codeEditor").value = cfg.customCode || "";
+
+  document.getElementById("widgetsContainer").innerHTML = "";
+  (cfg.widgets || []).forEach(w => addWidget(w.name, w.instance, w.product));
+
+  generate();
+}
+
+function buildShareUrl() {
+  const encoded = encodeConfig(serializeConfig());
+  return `${location.origin}${location.pathname}#s=${encoded}`;
+}
+
+function updateShareLink() {
+  const url = buildShareUrl();
+
+  /* Keep the address bar in sync so the current URL is always shareable too */
+  try {
+    history.replaceState(null, "", url);
+  } catch (e) {
+    /* ignored — e.g. file:// or sandboxed contexts may block this */
+  }
+
+  const box = document.getElementById("shareLinkBox");
+  const input = document.getElementById("shareLinkInput");
+
+  if (box && input) {
+    box.classList.remove("hidden");
+    input.value = url;
+  }
+}
+
+async function copyShareLink() {
+  const input = document.getElementById("shareLinkInput");
+  const status = document.getElementById("shareLinkStatus");
+  const url = (input && input.value) || buildShareUrl();
+
+  try {
+    await navigator.clipboard.writeText(url);
+  } catch (e) {
+    /* Clipboard API unavailable (e.g. insecure context) — fall back to manual select */
+    if (input) {
+      input.select();
+      document.execCommand("copy");
+    }
+  }
+
+  if (status) {
+    status.textContent = "Link copied!";
+    setTimeout(() => (status.textContent = ""), 2000);
+  }
+}
+
+function loadFromShareLink() {
+  const hash = location.hash;
+
+  if (!hash.startsWith("#s=")) return;
+
+  const cfg = decodeConfig(hash.slice(3));
+  if (cfg) applyConfig(cfg);
 }
 
 /* SPLITTER FOR RESIZING PREVIEW */
@@ -377,6 +514,9 @@ function toggleEditor() {
   const panel = document.getElementById("codeEditorPanel");
   panel.classList.toggle("hidden");
 }
+
+/* Restore state from a shared link, if one was opened */
+loadFromShareLink();
 
 </script>
 </body>
